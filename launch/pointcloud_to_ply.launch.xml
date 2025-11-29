@@ -1,0 +1,33 @@
+<launch>
+
+  <node pkg="pointcloud_to_ply"
+    exec="pointcloud_to_ply_node"
+    name="pointcloud_to_ply_node"
+    output="screen">
+      <param name="pointcloud_topic"            value="/rc_viscore/points2"/> <!-- Topic to subscribe to -->
+      <!-- Save options -->
+      <param name="output_path"                 value=""/>                    <!-- output_path will be created if missing -->
+      <param name="output_basename"             value="output_mesh"/>         <!-- final file will be "mesh.obj" or "mesh.ply" -->
+      <param name="output_format"               value="obj"/>                 <!-- "obj" or "ply" -->
+      <!-- Preprocessing -->
+      <param name="voxel_downsample_size"       value="0.0"/>                 <!-- 0 disables downsampling -->
+      <param name="remove_statistical_outliers" value="true"/>
+      <param name="nso_nb_neighbors"            value="20"/>
+      <param name="nso_std_ratio"               value="2.0"/>
+      <!-- Normal estimation -->
+      <param name="normal_radius"               value="0.05"/>
+      <param name="normal_max_nn"               value="30"/>
+      <!-- Reconstruction selection -->
+      <param name="reconstruction_method"       value="poisson"/>             <!-- "poisson" or "bpa" -->
+      <!-- Poisson params -->
+      <param name="poisson_depth"               value="9"/>
+      <param name="poisson_density_quantile"    value="0.05"/>                <!-- remove lowest X fraction by density (0..1) -->
+      <!-- Ball-Pivoting params -->
+      <param name="bpa_radii"                   value="[0.02, 0.04, 0.08]"/>  <!-- list of radii (meters) -->
+      <param name="bpa_triangle_angle"          value="30.0"/>                <!-- degrees; 0..90 typical -->
+      <!-- Node behavior -->
+      <param name="shutdown_after_save"         value="true"/>
+      <param name="log_level_debug"             value="false"/>
+  </node>
+
+</launch>

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>pointcloud_to_ply</name>
+  <version>0.0.1</version>
+  <description>Subscribe to a PointCloud2, reconstruct a mesh, and save to OBJ/PLY.</description>
+  <maintainer email="alexandros.filotheou@gmail.com">li9i</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>python3-open3d</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+
+  <!-- You must have Open3D available in your environment -->
+  <!-- e.g., sudo apt install python3-pip && pip3 install open3d -->
+</package>
