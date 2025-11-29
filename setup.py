@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='li9i',
     maintainer_email='alexandros.filotheou@gmail.com',
-    description='Subscribe to a PointCloud2, reconstruct a mesh, and save to OBJ/PLY',
+    description='Subscribe to a PointCloud2 topic, reconstruct a mesh, and save to OBJ/PLY',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
