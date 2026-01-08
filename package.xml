@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>pointcloud_to_ply</name>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
   <description>Subscribe to a PointCloud2 topic, reconstruct a mesh, and save to OBJ/PLY.</description>
   <maintainer email="alexandros.filotheou@gmail.com">li9i</maintainer>
   <license>BSD</license>
