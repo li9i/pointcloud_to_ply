@@ -1,0 +1,23 @@
+<launch>
+  <node pkg="pointcloud_to_mesh" exec="pointcloud_to_mesh_node" name="pointcloud_to_mesh_node" output="screen">
+    <param name="pointcloud_topic"            value="/point_cloud"/>
+    <param name="output_path"                 value="/home/ros2user/ros2_ws/src/pointcloud_to_ply/shared"/>
+    <param name="output_basename"             value="mesh"/>
+    <param name="output_format"               value="obj"/>
+
+    <param name="voxel_downsample_size"       value="0.0"/>
+    <param name="remove_statistical_outliers" value="true"/>
+    <param name="nso_nb_neighbors"            value="20"/>
+    <param name="nso_std_ratio"               value="2.0"/>
+
+    <param name="normal_radius"               value="0.05"/>
+    <param name="normal_max_nn"               value="30"/>
+
+    <param name="reconstruction_method"       value="poisson"/>
+    <param name="poisson_depth"               value="9"/>
+    <param name="poisson_density_quantile"    value="0.05"/>
+
+    <param name="shutdown_after_save"         value="true"/>
+    <param name="log_level_debug"             value="false"/>
+  </node>
+</launch>
