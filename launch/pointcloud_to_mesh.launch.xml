@@ -1,5 +1,5 @@
 <launch>
-  <node pkg="pointcloud_to_mesh" exec="pointcloud_to_mesh_node" name="pointcloud_to_mesh_node" output="screen">
+  <node pkg="pointcloud_to_ply" exec="pointcloud_to_ply_node" name="pointcloud_to_ply_node" output="screen">
     <param name="pointcloud_topic"            value="/point_cloud"/>
     <param name="output_path"                 value="/home/ros2user/ros2_ws/src/pointcloud_to_ply/shared"/>
     <param name="output_basename"             value="mesh"/>

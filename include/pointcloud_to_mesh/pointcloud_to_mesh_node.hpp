@@ -24,7 +24,7 @@
 /**
  * @brief Namespace for the pointcloud to mesh conversion package
  */
-namespace pointcloud_to_mesh
+namespace pointcloud_to_ply
 {
 
 /**
@@ -195,6 +195,6 @@ private:
   bool log_level_debug_;              // Whether to enable debug logging
 };
 
-}  // namespace pointcloud_to_mesh
+}  // namespace pointcloud_to_ply
 
 #endif  // POINTCLOUD_TO_MESH_NODE_HPP_

@@ -16,9 +16,9 @@
 #include <cmath>
 #include <sys/stat.h>
 
-#include "pointcloud_to_mesh/pointcloud_to_mesh_node.hpp"
+#include "pointcloud_to_ply/pointcloud_to_ply_node.hpp"
 
-namespace pointcloud_to_mesh
+namespace pointcloud_to_ply
 {
 
 /**
@@ -28,7 +28,7 @@ namespace pointcloud_to_mesh
  * and creates a subscription to the specified point cloud topic with appropriate
  * QoS settings for point cloud data.
  */
-PointCloudToMeshNode::PointCloudToMeshNode() : Node("pointcloud_to_mesh_node")
+PointCloudToMeshNode::PointCloudToMeshNode() : Node("pointcloud_to_ply_node")
 {
   // Declare parameters with default values
   this->declare_parameter<std::string>("pointcloud_topic", "/rc_viscore/points2");
@@ -385,7 +385,7 @@ bool PointCloudToMeshNode::saveMesh(const pcl::PolygonMesh::ConstPtr &mesh,
   }
 }
 
-}  // namespace pointcloud_to_mesh
+}  // namespace pointcloud_to_ply
 
 /**
  * @brief Main entry point for the pointcloud to mesh node
@@ -400,7 +400,7 @@ bool PointCloudToMeshNode::saveMesh(const pcl::PolygonMesh::ConstPtr &mesh,
 int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<pointcloud_to_mesh::PointCloudToMeshNode>());
+  rclcpp::spin(std::make_shared<pointcloud_to_ply::PointCloudToMeshNode>());
   rclcpp::shutdown();
   return 0;
 }
