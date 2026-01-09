@@ -1,21 +1,18 @@
+<?xml version="1.0"?>
 <package format="3">
   <name>pointcloud_to_ply</name>
-  <version>0.0.3</version>
-  <description>Subscribe to a PointCloud2 topic, reconstruct a mesh, and save to OBJ/PLY.</description>
+  <version>0.0.1</version>
+  <description>Subscribe to a PointCloud2 topic, reconstruct a mesh, and save to OBJ/PLY using PCL.</description>
   <maintainer email="alexandros.filotheou@gmail.com">li9i</maintainer>
   <license>BSD</license>
-
-  <url type="website">https://github.com/li9i/pointcloud-to-ply</url>
-  <url type="repository">https://github.com/li9i/pointcloud-to-ply</url>
-  <url type="bugtracker">https://github.com/li9i/pointcloud-to-ply/issues</url>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
-  <depend>std_msgs</depend>
-  <depend>libpcl-all-dev</depend>
+  <depend>pcl_ros</depend>
   <depend>pcl_conversions</depend>
+  <depend>libpcl-all-dev</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

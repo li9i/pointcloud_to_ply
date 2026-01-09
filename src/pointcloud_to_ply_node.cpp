@@ -1,0 +1,222 @@
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/surface/poisson.h>
+#include <pcl/io/ply_io.h>
+#include <pcl/io/obj_io.h>
+#include <pcl/common/common.h>
+#include <filesystem>
+#include <string>
+#include <vector>
+
+namespace fs = std::filesystem;
+
+class PointCloudToPLYNode : public rclcpp::Node
+{
+public:
+  PointCloudToPLYNode() : Node("pointcloud_to_ply_node"), done_(false)
+  {
+    // Declare parameters
+    this->declare_parameter<std::string>("pointcloud_topic", "/rc_viscore/points2");
+    this->declare_parameter<std::string>("output_path", "/tmp/mesh_output");
+    this->declare_parameter<std::string>("output_basename", "mesh");
+    this->declare_parameter<std::string>("output_format", "obj");
+
+    this->declare_parameter<double>("voxel_downsample_size", 0.0);
+    this->declare_parameter<bool>("remove_statistical_outliers", true);
+    this->declare_parameter<int>("nso_nb_neighbors", 20);
+    this->declare_parameter<double>("nso_std_ratio", 2.0);
+
+    this->declare_parameter<double>("normal_radius", 0.05);
+    this->declare_parameter<int>("normal_max_nn", 30);
+
+    this->declare_parameter<int>("poisson_depth", 9);
+    this->declare_parameter<double>("poisson_density_quantile", 0.05);
+
+    this->declare_parameter<bool>("shutdown_after_save", true);
+
+    // Get topic name
+    std::string topic = this->get_parameter("pointcloud_topic").as_string();
+
+    // Create QoS profile
+    auto qos = rclcpp::QoS(rclcpp::KeepLast(10))
+                   .reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT)
+                   .durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
+
+    // Create subscription
+    subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+        topic, qos,
+        std::bind(&PointCloudToPLYNode::pointcloud_callback, this, std::placeholders::_1));
+
+    RCLCPP_INFO(this->get_logger(), "Subscribed to %s", topic.c_str());
+  }
+
+private:
+  void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+  {
+    if (done_) {
+      return;
+    }
+    done_ = true;
+
+    try {
+      RCLCPP_INFO(this->get_logger(), "Received point cloud; converting to PCL...");
+
+      // Convert ROS PointCloud2 to PCL
+      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+      pcl::fromROSMsg(*msg, *cloud);
+
+      RCLCPP_INFO(this->get_logger(), "Point count: %zu", cloud->size());
+
+      // Preprocess
+      cloud = preprocess_pointcloud(cloud);
+
+      // Estimate normals
+      pcl::PointCloud<pcl::PointNormal>::Ptr cloud_with_normals = estimate_normals(cloud);
+
+      // Reconstruct mesh using Poisson
+      pcl::PolygonMesh mesh = poisson_reconstruction(cloud_with_normals);
+
+      // Save mesh
+      save_mesh(mesh);
+
+    } catch (const std::exception& e) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to create/save mesh: %s", e.what());
+    }
+
+    if (this->get_parameter("shutdown_after_save").as_bool()) {
+      RCLCPP_INFO(this->get_logger(), "Shutting down node.");
+      rclcpp::shutdown();
+    }
+  }
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr preprocess_pointcloud(
+      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
+  {
+    // Voxel downsampling
+    double voxel_size = this->get_parameter("voxel_downsample_size").as_double();
+    if (voxel_size > 0.0) {
+      pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
+      voxel_filter.setInputCloud(cloud);
+      voxel_filter.setLeafSize(voxel_size, voxel_size, voxel_size);
+      pcl::PointCloud<pcl::PointXYZ>::Ptr downsampled(new pcl::PointCloud<pcl::PointXYZ>);
+      voxel_filter.filter(*downsampled);
+      cloud = downsampled;
+      RCLCPP_INFO(this->get_logger(), "After downsampling: %zu points", cloud->size());
+    }
+
+    // Statistical outlier removal
+    if (this->get_parameter("remove_statistical_outliers").as_bool()) {
+      int nb_neighbors = this->get_parameter("nso_nb_neighbors").as_int();
+      double std_ratio = this->get_parameter("nso_std_ratio").as_double();
+
+      pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+      sor.setInputCloud(cloud);
+      sor.setMeanK(nb_neighbors);
+      sor.setStddevMulThresh(std_ratio);
+      pcl::PointCloud<pcl::PointXYZ>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZ>);
+      sor.filter(*filtered);
+      cloud = filtered;
+      RCLCPP_INFO(this->get_logger(), "After outlier removal: %zu points", cloud->size());
+    }
+
+    return cloud;
+  }
+
+  pcl::PointCloud<pcl::PointNormal>::Ptr estimate_normals(
+      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
+  {
+    double normal_radius = this->get_parameter("normal_radius").as_double();
+    int normal_max_nn = this->get_parameter("normal_max_nn").as_int();
+
+    RCLCPP_INFO(this->get_logger(), "Estimating normals...");
+
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+    ne.setInputCloud(cloud);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
+    ne.setSearchMethod(tree);
+    ne.setRadiusSearch(normal_radius);
+    ne.setKSearch(normal_max_nn);
+
+    pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+    ne.compute(*normals);
+
+    // Combine XYZ and normals
+    pcl::PointCloud<pcl::PointNormal>::Ptr cloud_with_normals(
+        new pcl::PointCloud<pcl::PointNormal>);
+    pcl::concatenateFields(*cloud, *normals, *cloud_with_normals);
+
+    RCLCPP_INFO(this->get_logger(), "Normals estimated.");
+
+    return cloud_with_normals;
+  }
+
+  pcl::PolygonMesh poisson_reconstruction(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_with_normals)
+  {
+    int depth = this->get_parameter("poisson_depth").as_int();
+    double density_quantile = this->get_parameter("poisson_density_quantile").as_double();
+
+    RCLCPP_INFO(this->get_logger(), "Performing Poisson reconstruction (depth=%d)...", depth);
+
+    pcl::Poisson<pcl::PointNormal> poisson;
+    poisson.setDepth(depth);
+    poisson.setInputCloud(cloud_with_normals);
+
+    pcl::PolygonMesh mesh;
+    poisson.reconstruct(mesh);
+
+    // Note: PCL's Poisson reconstruction doesn't directly expose density values
+    // like Open3D does, so density-based filtering is not straightforward.
+    // The mesh may contain some low-density artifacts at boundaries.
+    if (density_quantile > 0.0 && density_quantile < 1.0) {
+      RCLCPP_WARN(this->get_logger(),
+                  "Density-based vertex filtering is not available in PCL. "
+                  "Consider post-processing the mesh to remove boundary artifacts.");
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Poisson reconstruction complete. Vertices: %zu, Polygons: %zu",
+                mesh.cloud.width * mesh.cloud.height, mesh.polygons.size());
+
+    return mesh;
+  }
+
+  void save_mesh(const pcl::PolygonMesh& mesh)
+  {
+    std::string output_path = this->get_parameter("output_path").as_string();
+    std::string basename = this->get_parameter("output_basename").as_string();
+    std::string format = this->get_parameter("output_format").as_string();
+    std::transform(format.begin(), format.end(), format.begin(), ::tolower);
+
+    // Create output directory
+    fs::create_directories(output_path);
+
+    std::string filepath = output_path + "/" + basename + "." + format;
+
+    if (format == "ply") {
+      pcl::io::savePLYFile(filepath, mesh);
+    } else if (format == "obj") {
+      pcl::io::saveOBJFile(filepath, mesh);
+    } else {
+      throw std::runtime_error("output_format must be 'obj' or 'ply'");
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Saved mesh to: %s", filepath.c_str());
+  }
+
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+  bool done_;
+};
+
+int main(int argc, char** argv)
+{
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<PointCloudToPLYNode>();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
+  return 0;
+}
