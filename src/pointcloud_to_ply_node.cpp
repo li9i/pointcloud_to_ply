@@ -258,7 +258,6 @@ private:
       pcl::io::saveOBJFile(filepath, mesh);
     else
       throw std::runtime_error("output_format must be 'obj' or 'ply'");
-    }
 
     RCLCPP_INFO(this->get_logger(), "Saved mesh to: %s", filepath.c_str());
   }
