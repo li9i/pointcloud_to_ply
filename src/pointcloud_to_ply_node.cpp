@@ -14,11 +14,25 @@
 #include <string>
 #include <vector>
 
-namespace fs = std::filesystem;
-
+/**
+ * @brief ROS 2 node that converts an incoming PointCloud2 message into a reconstructed mesh
+ *        using Poisson surface reconstruction and saves it to disk in OBJ or PLY format.
+ *
+ * This node:
+ * - Subscribes to a PointCloud2 topic.
+ * - Optionally preprocesses the point cloud (voxel grid downsampling and statistical outlier removal).
+ * - Estimates surface normals using local neighborhood search.
+ * - Reconstructs a mesh via Poisson surface reconstruction.
+ * - Saves the resulting mesh to a user-specified path and format.
+ * - Optionally shuts down after processing the first point cloud.
+ */
 class PointCloudToPLYNode : public rclcpp::Node
 {
 public:
+  /**
+   * @brief Constructor that initializes the node, declares ROS parameters, sets up QoS,
+   *        and creates a subscription to the configured PointCloud2 topic.
+   */
   PointCloudToPLYNode() : Node("pointcloud_to_ply_node"), done_(false)
   {
     // Declare parameters
@@ -57,11 +71,19 @@ public:
   }
 
 private:
+
+  /**
+   * @brief Callback triggered when a PointCloud2 message is received.
+   *        Performs mesh reconstruction and saves the result.
+   *        Only processes the first message unless `shutdown_after_save` is false.
+   *
+   * @param msg Shared pointer to the incoming PointCloud2 message.
+   */
   void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    if (done_) {
+    if (done_)
       return;
-    }
+
     done_ = true;
 
     try {
@@ -89,18 +111,28 @@ private:
       RCLCPP_ERROR(this->get_logger(), "Failed to create/save mesh: %s", e.what());
     }
 
-    if (this->get_parameter("shutdown_after_save").as_bool()) {
+    if (this->get_parameter("shutdown_after_save").as_bool())
+    {
       RCLCPP_INFO(this->get_logger(), "Shutting down node.");
       rclcpp::shutdown();
     }
   }
 
+  /**
+   * @brief Applies optional preprocessing steps to the input point cloud:
+   *        - Voxel grid downsampling (if voxel_downsample_size > 0)
+   *        - Statistical outlier removal (if enabled)
+   *
+   * @param cloud Input point cloud (XYZ only).
+   * @return Processed point cloud.
+   */
   pcl::PointCloud<pcl::PointXYZ>::Ptr preprocess_pointcloud(
       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
   {
     // Voxel downsampling
     double voxel_size = this->get_parameter("voxel_downsample_size").as_double();
-    if (voxel_size > 0.0) {
+    if (voxel_size > 0.0)
+    {
       pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
       voxel_filter.setInputCloud(cloud);
       voxel_filter.setLeafSize(voxel_size, voxel_size, voxel_size);
@@ -111,7 +143,8 @@ private:
     }
 
     // Statistical outlier removal
-    if (this->get_parameter("remove_statistical_outliers").as_bool()) {
+    if (this->get_parameter("remove_statistical_outliers").as_bool())
+    {
       int nb_neighbors = this->get_parameter("nso_nb_neighbors").as_int();
       double std_ratio = this->get_parameter("nso_std_ratio").as_double();
 
@@ -128,6 +161,12 @@ private:
     return cloud;
   }
 
+  /**
+   * @brief Estimates surface normals for the input point cloud using local neighborhood search.
+   *
+   * @param cloud Input point cloud (XYZ only).
+   * @return Point cloud with XYZ coordinates and associated normals (PointNormal type).
+   */
   pcl::PointCloud<pcl::PointNormal>::Ptr estimate_normals(
       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
   {
@@ -156,6 +195,15 @@ private:
     return cloud_with_normals;
   }
 
+  /**
+   * @brief Performs Poisson surface reconstruction on a point cloud with normals.
+   *
+   * Note: PCL's Poisson implementation does not support density-based vertex filtering,
+   *       so the `poisson_density_quantile` parameter is only used for logging a warning.
+   *
+   * @param cloud_with_normals Input point cloud with normals.
+   * @return Reconstructed polygon mesh.
+   */
   pcl::PolygonMesh poisson_reconstruction(pcl::PointCloud<pcl::PointNormal>::Ptr cloud_with_normals)
   {
     int depth = this->get_parameter("poisson_depth").as_int();
@@ -173,7 +221,8 @@ private:
     // Note: PCL's Poisson reconstruction doesn't directly expose density values
     // like Open3D does, so density-based filtering is not straightforward.
     // The mesh may contain some low-density artifacts at boundaries.
-    if (density_quantile > 0.0 && density_quantile < 1.0) {
+    if (density_quantile > 0.0 && density_quantile < 1.0)
+    {
       RCLCPP_WARN(this->get_logger(),
                   "Density-based vertex filtering is not available in PCL. "
                   "Consider post-processing the mesh to remove boundary artifacts.");
@@ -185,6 +234,12 @@ private:
     return mesh;
   }
 
+  /**
+   * @brief Saves the reconstructed mesh to disk in the specified format (OBJ or PLY).
+   *        Creates the output directory if it doesn't exist.
+   *
+   * @param mesh The mesh to save.
+   */
   void save_mesh(const pcl::PolygonMesh& mesh)
   {
     std::string output_path = this->get_parameter("output_path").as_string();
@@ -193,24 +248,25 @@ private:
     std::transform(format.begin(), format.end(), format.begin(), ::tolower);
 
     // Create output directory
-    fs::create_directories(output_path);
+    std::filesystem::create_directories(output_path);
 
     std::string filepath = output_path + "/" + basename + "." + format;
 
-    if (format == "ply") {
+    if (format == "ply")
       pcl::io::savePLYFile(filepath, mesh);
-    } else if (format == "obj") {
+    else if (format == "obj")
       pcl::io::saveOBJFile(filepath, mesh);
-    } else {
+    else
       throw std::runtime_error("output_format must be 'obj' or 'ply'");
     }
 
     RCLCPP_INFO(this->get_logger(), "Saved mesh to: %s", filepath.c_str());
   }
 
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
-  bool done_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_; // ROS 2 subscription to PointCloud2 topic.
+  bool done_; // Flag to ensure only the first point cloud is processed.
 };
+
 
 int main(int argc, char** argv)
 {
