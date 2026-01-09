@@ -19,23 +19,23 @@ include_directories(
 )
 
 # Add executable
-add_executable(pointcloud_to_ply_node src/pointcloud_to_ply_node.cpp)
+add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
 
 # Link libraries
-ament_target_dependencies(pointcloud_to_ply_node
+ament_target_dependencies(${PROJECT_NAME}_node
   rclcpp
   sensor_msgs
   pcl_ros
   pcl_conversions
 )
 
-target_link_libraries(pointcloud_to_ply_node
+target_link_libraries(${PROJECT_NAME}_node
   ${PCL_LIBRARIES}
 )
 
 # Install targets
 install(TARGETS
-  pointcloud_to_ply_node
+  ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
