@@ -3,8 +3,8 @@
  *
  * Copyright (c) 2025 Alexandros PHILOTHEOU
  *
- * Licensed under the MIT License.
- * See LICENSE.MIT for details.
+ * Licensed under the BSD License.
+ * See LICENSE for details.
  */
 
 #include <rclcpp/rclcpp.hpp>
