@@ -1,3 +1,12 @@
+/*
+ * pointcloud_to_ply - Subscribe to a PointCloud2 topic, reconstruct a mesh, and save to .obj or .ply format
+ *
+ * Copyright (c) 2025 Alexandros PHILOTHEOU
+ *
+ * Licensed under the MIT License.
+ * See LICENSE.MIT for details.
+ */
+
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <pcl_conversions/pcl_conversions.h>
